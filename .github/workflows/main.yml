@@ -55,6 +55,17 @@ jobs:
   # Checks that schema.go is up to date with the
   # schema in tools/schema.py, and that every CSV header matches
   # its declared columns.
+  # Runs once, on the latest Go; the linters do not vary by version.
+  golangci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+      # v9 installs golangci-lint 2.x, which .golangci.yml requires.
+      - uses: golangci/golangci-lint-action@v9
+
   schema:
     runs-on: ubuntu-latest
     steps:

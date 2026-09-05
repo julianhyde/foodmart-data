@@ -1,0 +1,85 @@
+# Licensed to Julian Hyde under one or more contributor license
+# agreements.  See the NOTICE file distributed with this work
+# for additional information regarding copyright ownership.
+# Julian Hyde licenses this file to you under the Apache
+# License, Version 2.0 (the "License"); you may not use this
+# file except in compliance with the License.  You may obtain a
+# copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+# either express or implied.  See the License for the specific
+# language governing permissions and limitations under the
+# License.
+
+version: "2"
+
+linters:
+  # Maximum: enable every linter, then disable a short justified list.
+  default: all
+  disable:
+    # Requires an import allow-list; this package imports only the
+    # standard library, and has no dependencies to guard.
+    - depguard
+    - gomodguard
+    # Requires every struct literal to set every field; the generated
+    # schema sets NotNull only when it is true, and Find returns a zero
+    # Table alongside false.
+    - exhaustruct
+    - exhaustruct_v5
+    # Forbids package-level variables; Tables is a table of data, which
+    # is the whole point of the package.
+    - gochecknoglobals
+    # Forbids short names such as i, c, t; conflicts with idiomatic Go.
+    - varnamelen
+    # Whitespace-style opinions that fight gofumpt.
+    - nlreturn
+    - wsl
+    - wsl_v5
+    # Demands t.Parallel() everywhere; parallelism is not a goal.
+    - paralleltest
+    # Forbids "if err := f(); err != nil", which is idiomatic Go.
+    - noinlineerr
+    # Errors from this package name the table, line and column that
+    # failed; wrapping the underlying strconv or csv error again would
+    # add nothing.
+    - wrapcheck
+    # Forbids dynamic errors; the messages above are inherently dynamic.
+    - err113
+    # Counts repeated strings across the generated schema, where every
+    # one of 257 columns names its SQL type.
+    - goconst
+    # Column.value returns (nil, nil) to mean SQL NULL, deliberately.
+    - nilnil
+    # Table.load is a flat read-convert-insert loop; its branches are
+    # error checks, not nesting. gocognit still guards nesting.
+    - cyclop
+    - funlen
+    - gocyclo
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        # Its pointers-first ordering would reorder the fields of
+        # Column and Table away from the order they read best in.
+        - fieldalignment
+  exclusions:
+    presets:
+      # Among other things, this accepts "defer f.Close()".
+      - common-false-positives
+      - std-error-handling
+
+formatters:
+  enable:
+    # gofumpt is a stricter superset of gofmt.
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/hydromatic/foodmart-data
+
+# End .golangci.yml
