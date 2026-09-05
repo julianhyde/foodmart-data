@@ -52,6 +52,45 @@ Generating checks that every column matches the header row of its CSV
 file, and that there is no CSV file that `SCHEMA` does not describe, so
 it fails rather than emitting a schema that disagrees with the data.
 
+# Minimum supported versions
+
+Two files declare a minimum, and CI builds against each of them:
+
+| | declared in | tested by |
+| --- | --- | --- |
+| Rust | `rust-version` in [Cargo.toml](Cargo.toml) | the lowest `rust-version` in the matrix |
+| Go | the `go` directive in [go.mod](go.mod) | the lowest `go-version` in the matrix |
+
+The matrix is in
+[.github/workflows/main.yml](.github/workflows/main.yml). The lowest
+entry must equal the declared minimum; if you change one, change the
+other in the same commit, or CI will quietly stop testing the version
+the package claims to support.
+
+The policy is to keep both minimums as low as the code allows.
+
+Neither package has any dependencies, so nothing outside this
+repository can push a minimum up; it moves only when this code starts
+using a newer language or library feature. And this is a data set that
+people add to a project that already exists, so requiring them to
+upgrade a toolchain in order to read a CSV file is a poor bargain.
+
+Raising a minimum is therefore a compatibility break: give it its own
+entry in the [release history](CHANGELOG.md), and prefer giving up the
+feature that forced it, unless that feature is worth more than the
+projects it shuts out.
+
+The floor for Rust is edition 2021, which needs 1.56.
+
+To check a minimum by hand, rather than waiting for CI:
+
+```bash
+rustup toolchain install 1.70.0 --profile minimal
+cargo +1.70.0 test
+
+GOTOOLCHAIN=go1.22.0 go test ./...
+```
+
 # Release
 
 Releasing publishes two artifacts from one tag: the Go module, for
