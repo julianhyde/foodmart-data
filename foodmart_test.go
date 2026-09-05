@@ -17,8 +17,12 @@
 package foodmart
 
 import (
+	"errors"
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -203,6 +207,95 @@ func TestReadEverything(t *testing.T) {
 		t.Errorf("got %d rows, want %d", got, want)
 	}
 	t.Logf("%d rows, %d fields", rows, fields)
+}
+
+// licenseHeader is the Apache header that every Go and Rust source file
+// must carry. Comment markers and line breaks are removed before
+// comparing, so a file may wrap it however its language prefers.
+const licenseHeader = `Licensed to Julian Hyde under one or more contributor license
+agreements.  See the NOTICE file distributed with this work for
+additional information regarding copyright ownership. Julian Hyde
+licenses this file to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance with the
+License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.`
+
+// headerBytes is how much of a file to read looking for the header. The
+// header is at the top, so there is no need to normalize a whole file,
+// and src/schema.rs is a megabyte of generated data.
+const headerBytes = 4096
+
+// normalizeComment strips Go and Rust line-comment markers and collapses
+// each run of whitespace to a single space, so that a header can be
+// recognized however it is wrapped or commented.
+func normalizeComment(s string) string {
+	var b strings.Builder
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		line = strings.TrimPrefix(line, "//!") // Rust inner doc comment
+		line = strings.TrimPrefix(line, "//")
+		b.WriteString(line)
+		b.WriteByte(' ')
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+// Checks that every Go and Rust source file starts with the Apache
+// license header, including the generated schema.go and src/schema.rs.
+func TestLicenseHeader(t *testing.T) {
+	want := normalizeComment(licenseHeader)
+	counts := map[string]int{}
+	err := filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			// Cargo's build output holds copies of the sources, and
+			// the Go tool ignores dot-directories.
+			if name := d.Name(); path != "." &&
+				(name == "target" || strings.HasPrefix(name, ".")) {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".go" && ext != ".rs" {
+			return nil
+		}
+		f, err := os.Open(path) //nolint:gosec // a path from the tree being tested
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		head := make([]byte, headerBytes)
+		n, err := io.ReadFull(f, head)
+		if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+			return err
+		}
+		if !strings.Contains(normalizeComment(string(head[:n])), want) {
+			t.Errorf("%s: missing or altered Apache license header", path)
+		}
+		counts[ext]++
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A walk that matched nothing would pass silently.
+	for _, ext := range []string{".go", ".rs"} {
+		if counts[ext] == 0 {
+			t.Errorf("found no %s files to check", ext)
+		}
+	}
+	t.Logf("checked %d Go and %d Rust files",
+		counts[".go"], counts[".rs"])
 }
 
 // End foodmart_test.go
