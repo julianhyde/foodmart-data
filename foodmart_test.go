@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:testpackage // white-box: tests the unexported Column.value
 package foodmart
 
 import (
@@ -76,7 +77,7 @@ func TestFS(t *testing.T) {
 		if _, err := table.Reader(f); err != nil {
 			t.Error(err)
 		}
-		f.Close()
+		_ = f.Close()
 	}
 }
 
@@ -116,6 +117,7 @@ func TestQuoting(t *testing.T) {
 	for _, row := range rows {
 		if row[0] == "3100" {
 			found = true
+			//nolint:lll // a data fixture that cannot be wrapped
 			const want = `LookUpCube("[Sales]","(Measures.[Store Sales],"+time.currentmember.UniqueName+","+ Store.currentmember.UniqueName+")")`
 			if got := row[5]; got != want {
 				t.Errorf("got %q, want %q", got, want)
@@ -195,7 +197,7 @@ func TestReadEverything(t *testing.T) {
 				fields++
 			}
 		}
-		f.Close()
+		_ = f.Close()
 	}
 	if got, want := rows, 328060; got != want {
 		t.Errorf("got %d rows, want %d", got, want)

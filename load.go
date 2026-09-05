@@ -18,6 +18,7 @@ package foodmart
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -45,7 +46,7 @@ func Load(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	for _, t := range Tables {
 		if err := t.load(ctx, tx); err != nil {
 			return err
@@ -77,7 +78,7 @@ func (t Table) load(ctx context.Context, tx *sql.Tx) error {
 	args := make([]any, len(t.Columns))
 	for line := 2; ; line++ {
 		record, err := r.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
@@ -117,10 +118,8 @@ func (c Column) value(s string) (any, error) {
 // base returns a SQL type without its precision, for example "DECIMAL"
 // given "DECIMAL(10,4)".
 func base(sqlType string) string {
-	if i := strings.IndexByte(sqlType, '('); i >= 0 {
-		return sqlType[:i]
-	}
-	return sqlType
+	base, _, _ := strings.Cut(sqlType, "(")
+	return base
 }
 
 // End load.go
