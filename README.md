@@ -18,11 +18,15 @@ language governing permissions and limitations under the
 License.
 {% endcomment %}
 -->
+[![Build Status](https://github.com/hydromatic/foodmart-data/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/hydromatic/foodmart-data/actions?query=branch%3Amain)
+[![Go Reference](https://pkg.go.dev/badge/github.com/hydromatic/foodmart-data.svg)](https://pkg.go.dev/github.com/hydromatic/foodmart-data)
 # foodmart-data
 Foodmart data set as CSV files.
 
 This project contains the Foodmart data set as CSV files, one per
-table.
+table, embedded in a Go module. The module has no dependencies and
+does not link a database; you can read the rows directly, or load
+them into a database of your choice.
 
 It originated as part of the test suite of the
 [Mondrian OLAP engine](https://github.com/pentaho/mondrian).
@@ -30,22 +34,25 @@ It originated as part of the test suite of the
 ## Schema
 
 Foodmart contains 26 tables:
-* 7 fact tables: sales_fact_1997, sales_fact_1998, sales_fact_dec_1998,
-  inventory_fact_1997, inventory_fact_1998, salary, expense_fact
-* 19 dimension tables: product, customer, time_by_day, employee and more
+* 7 fact tables: `sales_fact_1997`, `sales_fact_1998`,
+  `sales_fact_dec_1998`, `inventory_fact_1997`, `inventory_fact_1998`,
+  `salary`, `expense_fact`
+* 19 dimension tables: `product`, `customer`, `time_by_day`,
+  `employee` and more
 
 Together they hold 328,060 rows, about 15MB uncompressed.
 
 There is a
 [schema diagram](https://github.com/julianhyde/foodmart-data-hsqldb/blob/main/foodmart-schema.png)
-in the foodmart-data-hsqldb project; note that it also shows the
+in the `foodmart-data-hsqldb` project; note that it also shows the
 aggregate tables, which this project does not include (see
 [below](#aggregate-tables)).
 
 ## The files
 
-Each table is a file `csv/<table>.csv`. The first line is a header row
-of column names; the remaining lines are data rows, quoted according to
+Each table is a file <code>csv/<i>table</i>.csv</code>. The first line
+is a header row of column names; the remaining lines are data rows,
+quoted according to
 [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180). An empty field
 represents SQL NULL.
 
@@ -58,9 +65,62 @@ day,week_day
 
 The column types are those of the
 [foodmart-data-hsqldb](https://github.com/julianhyde/foodmart-data-hsqldb)
-project, from which these files are taken.
-[tools/schema.py](tools/schema.py) lists every table and column, with
-its type and whether it is nullable.
+project, from which these files are taken. They are defined in
+[tools/schema.py](tools/schema.py), and are available at run
+time as `foodmart.Tables`.
+
+## Using the data set from Go
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	foodmart "github.com/hydromatic/foodmart-data"
+)
+
+func main() {
+	table, ok := foodmart.Find("employee")
+	if !ok {
+		log.Fatal("no such table")
+	}
+	rows, err := table.ReadAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, row := range rows[:10] {
+		fmt.Println(row[0] + ":" + row[1])
+	}
+}
+```
+
+To load the whole data set into a SQL database, use `Load`. This
+package has no driver of its own, so you supply the database:
+
+```go
+import (
+	"context"
+	"database/sql"
+
+	foodmart "github.com/hydromatic/foodmart-data"
+	_ "modernc.org/sqlite"
+)
+
+db, err := sql.Open("sqlite", ":memory:")
+if err != nil {
+	log.Fatal(err)
+}
+if err := foodmart.Load(context.Background(), db); err != nil {
+	log.Fatal(err)
+}
+
+var n int
+err = db.QueryRow(`select count(*) from "sales_fact_1997"`).Scan(&n)
+```
+
+Loading all 26 tables takes about half a second.
 
 ## Aggregate tables
 
@@ -82,8 +142,25 @@ If you need the aggregate tables as data, use
 
 ## Get foodmart-data
 
+### From the Go module proxy
+
+```bash
+$ go get github.com/hydromatic/foodmart-data@v0.6.0
+```
+
+### Download and build
+
 ```bash
 $ git clone https://github.com/hydromatic/foodmart-data.git
+$ cd foodmart-data
+$ go test ./...
+```
+
+`schema.go` is generated from the `SCHEMA` table in
+`tools/schema.py`. After editing it, regenerate:
+
+```bash
+$ ./tools/schema.py
 ```
 
 ## See also

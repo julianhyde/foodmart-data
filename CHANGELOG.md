@@ -26,13 +26,14 @@ For a full list of releases, see
 ## <a href="https://github.com/hydromatic/foodmart-data/releases/tag/v0.6.0">0.6.0</a> / 2026-09-04
 
 First release. It provides the Foodmart data set as CSV files, one
-per table.
+per table, embedded in a Go module that has no dependencies.
 
 The version number matches
 [foodmart-data-hsqldb](https://github.com/julianhyde/foodmart-data-hsqldb)
 0.6, from which the CSV files are taken.
 
 * Add the Foodmart data set as 26 CSV files
-* Add `tools/schema.py`, describing the tables and columns
+* Add a Go module, `github.com/hydromatic/foodmart-data`
+* Generate `schema.go` from the schema in `tools/schema.py`
 
 <!-- End CHANGELOG.md -->
