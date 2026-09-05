@@ -52,9 +52,6 @@ jobs:
       - name: Test
         run: go test ./...
 
-  # Checks that schema.go is up to date with the
-  # schema in tools/schema.py, and that every CSV header matches
-  # its declared columns.
   # Runs once, on the latest Go; the linters do not vary by version.
   golangci-lint:
     runs-on: ubuntu-latest
@@ -66,6 +63,29 @@ jobs:
       # v9 installs golangci-lint 2.x, which .golangci.yml requires.
       - uses: golangci/golangci-lint-action@v9
 
+  rust:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The lowest version is the "rust-version" in Cargo.toml.
+        rust-version: [ "1.70", "stable" ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        run: |
+          rustup toolchain install ${{ matrix.rust-version }} --profile minimal \
+            --component rustfmt,clippy
+          rustup default ${{ matrix.rust-version }}
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test
+
+  # Checks that schema.go and src/schema.rs are up to date with the
+  # schema in tools/schema.py, and that every CSV header matches
+  # its declared columns.
   schema:
     runs-on: ubuntu-latest
     steps:

@@ -16,7 +16,7 @@
 # language governing permissions and limitations under the
 # License.
 
-"""The Foodmart schema, and a generator for schema.go.
+"""The Foodmart schema, and a generator for schema.go and src/schema.rs.
 
 SCHEMA is the definitive description of the data set: one entry per
 table, and within it one entry per column, in CSV column order. It
@@ -26,7 +26,7 @@ The types are those of the foodmart-data-hsqldb project, from which the
 CSV files are taken. The 11 aggregate tables of that project, whose
 names start with "agg_", are deliberately absent; see README.md.
 
-Running this script regenerates schema.go, and checks every column
+Running this script regenerates schema.go and src/schema.rs, and checks every column
 against the header row of its CSV file, so the schema and the data
 cannot drift apart unnoticed:
 
@@ -410,11 +410,35 @@ def write_go(path):
     open(path, 'w').write('\n'.join(b) + '\n')
 
 
+def write_rust(path):
+    b = [LICENSE.replace('// Code generated', '//! Code generated'), '',
+         'use crate::{Column, Table};', '',
+         '/// Every table in the data set, in alphabetical order.',
+         'pub static TABLES: [Table; %d] = [' % len(SCHEMA)]
+    for name, columns in SCHEMA:
+        b.append('    Table {')
+        b.append('        name: "%s",' % name)
+        b.append('        csv: include_str!("../csv/%s.csv"),' % name)
+        b.append('        columns: &[')
+        for cn, ct, nn in columns:
+            b.append('            Column {')
+            b.append('                name: "%s",' % cn)
+            b.append('                sql_type: "%s",' % ct)
+            b.append('                not_null: %s,'
+                     % ('true' if nn else 'false'))
+            b.append('            },')
+        b.append('        ],')
+        b.append('    },')
+    b += ['];', '', '// End schema.rs']
+    open(path, 'w').write('\n'.join(b) + '\n')
+
+
 def reformat(tool, args, path):
     """Runs a formatter over a generated file, if it is installed.
 
     Keeping the generated files formatted means that regenerating them
-    never produces a diff that "gofmt -l" would then complain about.
+    never produces a diff that "gofmt -l" or "cargo fmt --check" would
+    then complain about.
     """
     if shutil.which(tool):
         subprocess.run([tool] + args + [path], check=True)
@@ -427,6 +451,10 @@ def main():
     go_path = os.path.join(root, 'schema.go')
     write_go(go_path)
     reformat('gofmt', ['-w'], go_path)
+
+    rust_path = os.path.join(root, 'src', 'schema.rs')
+    write_rust(rust_path)
+    reformat('rustfmt', ['--edition', '2021'], rust_path)
 
     print('%d tables, %d columns'
           % (len(SCHEMA), sum(len(c) for _, c in SCHEMA)))

@@ -19,14 +19,17 @@ License.
 {% endcomment %}
 -->
 [![Build Status](https://github.com/hydromatic/foodmart-data/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/hydromatic/foodmart-data/actions?query=branch%3Amain)
+[![crates.io](https://img.shields.io/crates/v/foodmart-data.svg)](https://crates.io/crates/foodmart-data)
+[![docs.rs](https://img.shields.io/docsrs/foodmart-data)](https://docs.rs/foodmart-data)
 [![Go Reference](https://pkg.go.dev/badge/github.com/hydromatic/foodmart-data.svg)](https://pkg.go.dev/github.com/hydromatic/foodmart-data)
-# foodmart-data
-Foodmart data set as CSV files.
 
-This project contains the Foodmart data set as CSV files, one per
-table, embedded in a Go module. The module has no dependencies and
-does not link a database; you can read the rows directly, or load
-them into a database of your choice.
+# foodmart-data
+Foodmart data set as CSV files, published for Go and Rust.
+
+This project contains the Foodmart data set as CSV files, embedded in
+a Go module and a Rust crate. Neither has any dependencies, and
+neither links a database; you can read the rows directly, or generate
+SQL and run it against a database of your choice.
 
 It originated as part of the test suite of the
 [Mondrian OLAP engine](https://github.com/pentaho/mondrian).
@@ -42,7 +45,10 @@ Foodmart contains 26 tables:
 
 Together they hold 328,060 rows, about 15MB uncompressed.
 
-There is a
+The schema is defined in
+[tools/schema.py](tools/schema.py), and is available at run
+time as `foodmart.Tables` in Go and `foodmart_data::TABLES` in Rust.
+Both can emit a `CREATE TABLE` statement for a table. There is a
 [schema diagram](https://github.com/julianhyde/foodmart-data-hsqldb/blob/main/foodmart-schema.png)
 in the `foodmart-data-hsqldb` project; note that it also shows the
 aggregate tables, which this project does not include (see
@@ -122,6 +128,28 @@ err = db.QueryRow(`select count(*) from "sales_fact_1997"`).Scan(&n)
 
 Loading all 26 tables takes about half a second.
 
+## Using the data set from Rust
+
+```rust
+let table = foodmart_data::find("employee").unwrap();
+for row in table.rows().take(10) {
+    println!("{}:{}", row[0], row[1]);
+}
+```
+
+The crate embeds each table's CSV text, so there are no files to find at
+run time. To load the data into a database, generate SQL with
+`create_table_sql` and `insert_sql`:
+
+```rust
+for table in &foodmart_data::TABLES {
+    connection.execute(&table.create_table_sql())?;
+    for row in table.rows() {
+        connection.execute(&table.insert_sql(&row))?;
+    }
+}
+```
+
 ## Aggregate tables
 
 The Foodmart data set also has 11 aggregate tables, whose names start
@@ -142,6 +170,15 @@ If you need the aggregate tables as data, use
 
 ## Get foodmart-data
 
+### From crates.io
+
+Add the crate to your `Cargo.toml`:
+
+```toml
+[dependencies]
+foodmart-data = "0.6.0"
+```
+
 ### From the Go module proxy
 
 ```bash
@@ -154,10 +191,11 @@ $ go get github.com/hydromatic/foodmart-data@v0.6.0
 $ git clone https://github.com/hydromatic/foodmart-data.git
 $ cd foodmart-data
 $ go test ./...
+$ cargo test
 ```
 
-`schema.go` is generated from the `SCHEMA` table in
-`tools/schema.py`. After editing it, regenerate:
+`schema.go` and `src/schema.rs` are generated from the `SCHEMA` table in
+`tools/schema.py`. After editing it, regenerate them:
 
 ```bash
 $ ./tools/schema.py
