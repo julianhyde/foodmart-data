@@ -33,6 +33,8 @@ The version number matches
 [foodmart-data-hsqldb](https://github.com/julianhyde/foodmart-data-hsqldb)
 0.6, from which the CSV files are taken.
 
+It requires Rust 1.71 or higher, and Go 1.22 or higher.
+
 * Add a Go module, `github.com/hydromatic/foodmart-data`
 * Add a Rust crate, `foodmart-data`
 * Generate `schema.go` and `src/schema.rs` from the schema in

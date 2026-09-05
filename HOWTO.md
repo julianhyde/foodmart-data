@@ -80,13 +80,29 @@ entry in the [release history](CHANGELOG.md), and prefer giving up the
 feature that forced it, unless that feature is worth more than the
 projects it shuts out.
 
-The floor for Rust is edition 2021, which needs 1.56.
+For Rust there is a floor as well as a policy. As of each release, the
+minimum will be at least two years, and at least ten minor versions,
+behind the stable release of the day. Both bounds apply, and whichever
+is stricter wins. Rust ships every six weeks, so ten versions is about
+fourteen months; the two-year bound is thus the one that normally
+binds, and the version bound only matters if that cadence changes.
+
+The minimum today is 1.71, released in July 2023. Stable is 1.71 plus
+twenty-six minor versions, and more than three years newer, so 1.71
+has room to stay where it is for a while yet. It is also the most
+common minimum among published crates, which is why it was chosen.
+
+Go is not held to those numbers. It releases twice a year and supports
+only the two most recent releases, so ten versions would be five
+years; the general policy above is the whole rule there.
+
+The hard floor for Rust is edition 2021, which needs 1.56.
 
 To check a minimum by hand, rather than waiting for CI:
 
 ```bash
-rustup toolchain install 1.70.0 --profile minimal
-cargo +1.70.0 test
+rustup toolchain install 1.71.0 --profile minimal
+cargo +1.71.0 test
 
 GOTOOLCHAIN=go1.22.0 go test ./...
 ```
