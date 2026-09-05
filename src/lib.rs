@@ -43,6 +43,14 @@ mod schema;
 
 pub use schema::TABLES;
 
+/// Value of the `not_null` argument to [`Column::new`], for a column
+/// that may contain nulls.
+pub(crate) const NULL: bool = false;
+
+/// Value of the `not_null` argument to [`Column::new`], for a column
+/// that is declared `NOT NULL`.
+pub(crate) const NOT_NULL: bool = true;
+
 /// A column of a [`Table`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Column {
@@ -161,6 +169,21 @@ impl Table {
 }
 
 impl Column {
+    /// Creates a column, given its name, its SQL type, and whether it
+    /// is declared `NOT NULL`.
+    #[must_use]
+    pub const fn new(
+        name: &'static str,
+        sql_type: &'static str,
+        not_null: bool,
+    ) -> Self {
+        Self {
+            name,
+            sql_type,
+            not_null,
+        }
+    }
+
     /// Returns the SQL type without its precision, for example
     /// `"DECIMAL"` given `"DECIMAL(10,4)"`.
     pub fn base_type(&self) -> &'static str {

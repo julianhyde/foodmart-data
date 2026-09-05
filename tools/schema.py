@@ -412,7 +412,7 @@ def write_go(path):
 
 def write_rust(path):
     b = [LICENSE.replace('// Code generated', '//! Code generated'), '',
-         'use crate::{Column, Table};', '',
+         'use crate::{Column, Table, NOT_NULL, NULL};', '',
          '/// Every table in the data set, in alphabetical order.',
          'pub static TABLES: [Table; %d] = [' % len(SCHEMA)]
     for name, columns in SCHEMA:
@@ -421,12 +421,8 @@ def write_rust(path):
         b.append('        csv: include_str!("../csv/%s.csv"),' % name)
         b.append('        columns: &[')
         for cn, ct, nn in columns:
-            b.append('            Column {')
-            b.append('                name: "%s",' % cn)
-            b.append('                sql_type: "%s",' % ct)
-            b.append('                not_null: %s,'
-                     % ('true' if nn else 'false'))
-            b.append('            },')
+            b.append('            Column::new("%s", "%s", %s),'
+                     % (cn, ct, 'NOT_NULL' if nn else 'NULL'))
         b.append('        ],')
         b.append('    },')
     b += ['];', '', '// End schema.rs']
