@@ -1,0 +1,74 @@
+# Licensed to Julian Hyde under one or more contributor license
+# agreements.  See the NOTICE file distributed with this work
+# for additional information regarding copyright ownership.
+# Julian Hyde licenses this file to you under the Apache
+# License, Version 2.0 (the "License"); you may not use this
+# file except in compliance with the License.  You may obtain a
+# copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+# either express or implied.  See the License for the specific
+# language governing permissions and limitations under the
+# License.
+#
+name: CI
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+  workflow_dispatch: # allow manual triggering
+  schedule:
+    # Run at 01:45 UTC on the 7th day of each month
+    #         m  h dom mon dow
+    - cron: '45  1   7   *   *'
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ "1.22", "1.23", "stable" ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Check formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "These files are not gofmt-clean:"
+            gofmt -l .
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+
+  # Checks that schema.go is up to date with the
+  # schema in tools/schema.py, and that every CSV header matches
+  # its declared columns.
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+      - name: Regenerate
+        run: ./tools/schema.py
+      - name: Check for differences
+        run: |
+          if ! git diff --exit-code; then
+            echo "Generated files are stale; run ./tools/schema.py"
+            exit 1
+          fi
+
+# End main.yml
