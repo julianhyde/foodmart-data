@@ -22,6 +22,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -232,23 +233,42 @@ limitations under the License.`
 // and src/schema.rs is a megabyte of generated data.
 const headerBytes = 4096
 
-// normalizeComment strips Go and Rust line-comment markers and collapses
-// each run of whitespace to a single space, so that a header can be
-// recognized however it is wrapped or commented.
+// headerExts are the file types that must carry the license header.
+// Files with no extension (LICENSE, NOTICE, .gitignore) and generated
+// files that no one edits (Cargo.lock) are not among them.
+var headerExts = []string{
+	".go", ".md", ".mod", ".py", ".rs", ".toml", ".yml",
+}
+
+// normalizeComment strips the comment markers of every language in
+// [headerExts] and collapses each run of whitespace to a single space,
+// so that a header can be recognized however it is wrapped or
+// commented. Markdown has no line-comment syntax, so its header sits
+// inside an HTML comment, wrapped in Jekyll tags.
 func normalizeComment(s string) string {
 	var b strings.Builder
 	for _, line := range strings.Split(s, "\n") {
 		line = strings.TrimSpace(line)
-		line = strings.TrimPrefix(line, "//!") // Rust inner doc comment
-		line = strings.TrimPrefix(line, "//")
+		switch {
+		case strings.HasPrefix(line, "//!"): // Rust inner doc comment
+			line = line[3:]
+		case strings.HasPrefix(line, "//"): // Go, Rust, go.mod
+			line = line[2:]
+		case strings.HasPrefix(line, "#"): // TOML, Python, YAML
+			line = line[1:]
+		}
+		switch line {
+		case "<!--", "-->", "{% comment %}", "{% endcomment %}":
+			continue // Markdown
+		}
 		b.WriteString(line)
 		b.WriteByte(' ')
 	}
 	return strings.Join(strings.Fields(b.String()), " ")
 }
 
-// Checks that every Go and Rust source file starts with the Apache
-// license header, including the generated schema.go and src/schema.rs.
+// Checks that every source file starts with the Apache license header,
+// including the generated schema.go and src/schema.rs.
 func TestLicenseHeader(t *testing.T) {
 	want := normalizeComment(licenseHeader)
 	counts := map[string]int{}
@@ -257,16 +277,15 @@ func TestLicenseHeader(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			// Cargo's build output holds copies of the sources, and
-			// the Go tool ignores dot-directories.
-			if name := d.Name(); path != "." &&
-				(name == "target" || strings.HasPrefix(name, ".")) {
+			// Cargo's build output holds copies of the sources.
+			// .github must not be skipped; it holds the workflow.
+			if name := d.Name(); name == "target" || name == ".git" {
 				return fs.SkipDir
 			}
 			return nil
 		}
 		ext := filepath.Ext(path)
-		if ext != ".go" && ext != ".rs" {
+		if !slices.Contains(headerExts, ext) {
 			return nil
 		}
 		f, err := os.Open(path) //nolint:gosec // a path from the tree being tested
@@ -289,13 +308,14 @@ func TestLicenseHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A walk that matched nothing would pass silently.
-	for _, ext := range []string{".go", ".rs"} {
+	for _, ext := range headerExts {
 		if counts[ext] == 0 {
 			t.Errorf("found no %s files to check", ext)
 		}
 	}
-	t.Logf("checked %d Go and %d Rust files",
-		counts[".go"], counts[".rs"])
+	for _, ext := range headerExts {
+		t.Logf("checked %d %s files", counts[ext], ext)
+	}
 }
 
 // End foodmart_test.go
